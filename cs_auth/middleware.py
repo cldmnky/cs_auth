@@ -213,6 +213,9 @@ class CloudstackAuth(object):
                 auth_user = env.get('HTTP_X_AUTH_USER', None)
                 auth_key = env.get('HTTP_X_AUTH_KEY', None)
                 if auth_user and auth_key:
+                    # for now ignore if account:user is sent, just use user
+                    if ':' in auth_user:
+                        auth_user = auth_user.split(':')[1]
                     # check if we have this user and key cached.
                     memcache_client = cache_from_env(env)
                     memcache_result = memcache_client.get('cs_auth/%s/%s' % (auth_user, auth_key))
