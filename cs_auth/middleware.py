@@ -240,8 +240,10 @@ class CloudstackAuth(object):
                                                          'x-storage-url':identity.get('account_url', None)})
                         return req.response(env, start_response)
                     else: # hit cloudstack for the details.
+                        self.logger.debug('Trying auth with CS')
                         user_list = self.cs_api.request(dict({'command': 'listUsers', 'accountid': auth_account, 'username': auth_user, 'state': 'enabled'}))
                         if user_list:
+                            self.logger.debug('Got user list from CS, list size is %s' % len(user_list['user']))
                             for user in user_list['user']:
                                 if 'apikey' in user and user['apikey'] == auth_key:
                                     token = hashlib.sha224('%s%s' % (user['secretkey'], user['apikey'])).hexdigest()
