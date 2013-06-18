@@ -174,7 +174,7 @@ class CloudstackAuth(object):
                                     identity = dict({
                                         'username':user['username'],
                                         'account':user['account'],
-                                        'account':user['accountid'],
+                                        'accountid':user['accountid'],
                                         'token':token,
                                         'account_url':account_url,
                                         'domain':dict({'id':user['domainid'], 'name':user['domain']}),
