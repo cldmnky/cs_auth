@@ -63,7 +63,8 @@ class CloudstackAuth(object):
         cs_admin_apikey = <admin user's apikey>
         cs_admin_secretkey = <admin user's secretkey>
         swift_storage_url = http://127.0.0.1:8080
-        cs_group_map
+        # Map swift roles to groups, this will make all cs_global_admins to reseller admins and all users to admins in their own accounts.
+        cs_group_map = reseller_admin:cs_global_admin_role,admin:cs_user_role
         #cs_cache_timeout = 86400
         #allowed_sync_hosts = 127.0.0.1#,127.0.0.2,127.0.0.3
 
@@ -122,6 +123,7 @@ class CloudstackAuth(object):
         self.allowed_sync_hosts = [h.strip()
             for h in conf.get('allowed_sync_hosts', '127.0.0.1').split(',')
             if h.strip()]
+        self.cs_group_map = [g.strip() for g in conf.get('cs_group_map').split(,) if g.strip()]
 
     def __call__(self, env, start_response):
         self.logger.debug('In cs_auth middleware')
@@ -151,14 +153,14 @@ class CloudstackAuth(object):
                         
                         # The swift3 middleware sets env['PATH_INFO'] to '/v1/<aws_secret_key>', we need to map it to the cloudstack account.
                         if self.reseller_prefix != '':
-                            env['PATH_INFO'] = env['PATH_INFO'].replace(s3_apikey, '%s_%s' % (self.reseller_prefix, identity.get('account', '')))
+                            env['PATH_INFO'] = env['PATH_INFO'].replace(s3_apikey, '%s_%s' % (self.reseller_prefix, identity.get('accountid', '')))
                         else:
-                            env['PATH_INFO'] = env['PATH_INFO'].replace(s3_apikey, '%s' % (identity.get('account', '')))
-                else: # hit cloudstack and populate memcached if valid request
-                    user_list = self.cs_api.request(dict({'command':'listUsers'}))
+                            env['PATH_INFO'] = env['PATH_INFO'].replace(s3_apikey, '%s' % (identity.get('accountid', '')))
+                else: # hit cloudstack and populate memcached if valid request, this will fail if number of users is greater than max pagesize in cs.
+                    user_list = self.cs_api.request(dict({'command':'listUsers', 'state': 'enabled'}))
                     if user_list:
                         for user in user_list['user']:
-                            if user['state'] == 'enabled' and 'apikey' in user and user['apikey'] == s3_apikey:
+                            if 'apikey' in user and user['apikey'] == s3_apikey:
                                 # At this point we have found a matching user.  Authenticate them.
                                 s3_token = base64.urlsafe_b64decode(env.get('HTTP_X_AUTH_TOKEN', '')).encode("utf-8")
                                 if s3_signature == base64.b64encode(hmac.new(user['secretkey'], s3_token, hashlib.sha1).digest()):
@@ -166,24 +168,25 @@ class CloudstackAuth(object):
                                     timeout = self.cs_cache_timeout
                                     token = hashlib.sha224('%s%s' % (user['secretkey'], user['apikey'])).hexdigest()
                                     if self.reseller_prefix != '':
-                                        account_url = '%s/v1/%s_%s' % (self.storage_url, self.reseller_prefix, quote(user['account']))
+                                        account_url = '%s/v1/%s_%s' % (self.storage_url, self.reseller_prefix, quote(user['accountid']))
                                     else:
-                                        account_url = '%s/v1/%s' % (self.storage_url, quote(user['account']))
+                                        account_url = '%s/v1/%s' % (self.storage_url, quote(user['accountid']))
                                     identity = dict({
                                         'username':user['username'],
                                         'account':user['account'],
+                                        'account':user['accountid'],
                                         'token':token,
                                         'account_url':account_url,
                                         'domain':dict({'id':user['domainid'], 'name':user['domain']}),
-                                        'roles':[self.cs_roles[user['accounttype']], user['account']],
+                                        'roles':[self.cs_roles[user['accounttype']], user['account'], self.cs_group_map[self.cs_roles[user['accounttype']]]],
                                         'expires':expires
                                     })
                                     self.logger.debug('Creating S3 identity')
                                     # The swift3 middleware sets env['PATH_INFO'] to '/v1/<aws_secret_key>', we need to map it to the cloudstack account.
                                     if self.reseller_prefix != '':
-                                        env['PATH_INFO'] = env['PATH_INFO'].replace(s3_apikey, '%s_%s' % (self.reseller_prefix, user['account']))
+                                        env['PATH_INFO'] = env['PATH_INFO'].replace(s3_apikey, '%s_%s' % (self.reseller_prefix, user['accountid']))
                                     else:
-                                        env['PATH_INFO'] = env['PATH_INFO'].replace(s3_apikey, '%s' % (user['account']))        
+                                        env['PATH_INFO'] = env['PATH_INFO'].replace(s3_apikey, '%s' % (user['accountid']))
                                     memcache_client = cache_from_env(env)
                                     if memcache_client:
                                         memcache_client.set('cs_s3_auth/%s' % s3_apikey, (expires, dict({'secret':user['secretkey'], 'identity':identity})), timeout=timeout)
@@ -211,17 +214,12 @@ class CloudstackAuth(object):
 
             # Check if the request is for authentication (to get a token).
             if auth_url_piece in ('auth', 'v1.0'): # valid auth urls
-                auth_user = env.get('HTTP_X_AUTH_USER', None)
+                auth_account_user = env.get('HTTP_X_AUTH_USER', None)
                 auth_key = env.get('HTTP_X_AUTH_KEY', None)
-                if auth_user and auth_key:
+                if auth_account_user and auth_key:
                     # for now ignore if account:user is sent, just use user
-                    if ':' in auth_user:
-                        if auth_user.startswith(':'):
-                            auth_user = auth_user.split(':')[1]
-                        elif auth_user.endswith(':'):
-                            auth_user = auth_user.split(':')[0]
-                        else:
-                            auth_user = auth_user.split(':')[1]
+                    if ':' in auth_account_user:
+                        auth_account, auth_user = auth_account_user.split(':')
                     # check if we have this user and key cached.
                     memcache_client = cache_from_env(env)
                     memcache_result = memcache_client.get('cs_auth/%s/%s' % (auth_user, auth_key))
@@ -242,10 +240,10 @@ class CloudstackAuth(object):
                                                          'x-storage-url':identity.get('account_url', None)})
                         return req.response(env, start_response)
                     else: # hit cloudstack for the details.
-                        user_list = self.cs_api.request(dict({'command':'listUsers', 'username':auth_user}))
+                        user_list = self.cs_api.request(dict({'command': 'listUsers', 'accountid': auth_account, 'username': auth_user, 'state': 'enabled'}))
                         if user_list:
                             for user in user_list['user']:
-                                if user['state'] == 'enabled' and 'apikey' in user and user['apikey'] == auth_key:
+                                if 'apikey' in user and user['apikey'] == auth_key:
                                     token = hashlib.sha224('%s%s' % (user['secretkey'], user['apikey'])).hexdigest()
                                     if env.get('HTTP_X_AUTH_TTL', None):
                                         expires = time() + int(env.get('HTTP_X_AUTH_TTL'))
@@ -254,16 +252,17 @@ class CloudstackAuth(object):
                                         expires = time() + self.cs_cache_timeout
                                         timeout = self.cs_cache_timeout
                                     if self.reseller_prefix != '':
-                                        account_url = '%s/v1/%s_%s' % (self.storage_url, self.reseller_prefix, quote(user['account']))
+                                        account_url = '%s/v1/%s_%s' % (self.storage_url, self.reseller_prefix, quote(user['accountid']))
                                     else:
-                                        account_url = '%s/v1/%s' % (self.storage_url, quote(user['account']))
+                                        account_url = '%s/v1/%s' % (self.storage_url, quote(user['accountid']))
                                     identity = dict({
                                         'username':user['username'],
                                         'account':user['account'],
+                                        'accountid':user['accountid'],
                                         'token':token,
                                         'account_url':account_url,
                                         'domain':dict({'id':user['domainid'], 'name':user['domain']}),
-                                        'roles':[self.cs_roles[user['accounttype']], user['account']],
+                                        'roles':[self.cs_roles[user['accounttype']], user['account'],self.cs_group_map[self.cs_roles[user['accounttype']]]],
                                         'expires':expires
                                     })
                                     self.logger.debug('Created identity: %s' % identity)
@@ -341,22 +340,23 @@ class CloudstackAuth(object):
         """
 
         identity = None
-        user_list = self.cs_api.request(dict({'command':'listUsers'}))
+        user_list = self.cs_api.request(dict({'command':'listUsers', 'state': 'enabled'}))
         if user_list:
             for user in user_list['user']:
-                if user['state'] == 'enabled' and 'secretkey' in user and hashlib.sha224('%s%s' % (user['secretkey'], user['apikey'])).hexdigest() == token_claim:
+                if 'secretkey' in user and hashlib.sha224('%s%s' % (user['secretkey'], user['apikey'])).hexdigest() == token_claim:
                     if self.reseller_prefix != '':
-                        account_url = '%s/v1/%s_%s' % (self.storage_url, self.reseller_prefix, quote(user['account']))
+                        account_url = '%s/v1/%s_%s' % (self.storage_url, self.reseller_prefix, quote(user['accountid']))
                     else:
-                        account_url = '%s/v1/%s' % (self.storage_url, quote(user['account']))
+                        account_url = '%s/v1/%s' % (self.storage_url, quote(user['accountid']))
                     expires = time() + self.cs_cache_timeout
                     identity = dict({
                         'username':user['username'],
                         'account':user['account'],
+                        'accountid':user['accountid'],
                         'token':token_claim,
                         'account_url':account_url,
                         'domain':dict({'id':user['domainid'], 'name':user['domain']}),
-                        'roles':[self.cs_roles[user['accounttype']], user['account']],
+                        'roles':[self.cs_roles[user['accounttype']], user['account'],self.cs_group_map[self.cs_roles[user['accounttype']]]],
                         'expires':expires
                     })
                     self.logger.debug('Using identity from cloudstack via token')
@@ -387,8 +387,9 @@ class CloudstackAuth(object):
         user_roles = identity.get('roles', [])
 
         # If this user is part of this account or is the global admin, give access.
-        if account == identity.get('account') or self.cs_roles[1] in user_roles:
+        if account == identity.get('accountid') or self.cs_roles[1] in user_roles:
             req.environ['swift_owner'] = True
+            self.logger.debug("User %s has reseller admin, authorizing" % identity.get('username'))
             return None
 
         # Allow container sync
