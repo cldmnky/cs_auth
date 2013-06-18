@@ -123,7 +123,7 @@ class CloudstackAuth(object):
         self.allowed_sync_hosts = [h.strip()
             for h in conf.get('allowed_sync_hosts', '127.0.0.1').split(',')
             if h.strip()]
-        self.cs_group_map = [g.strip() for g in conf.get('cs_group_map').split(,) if g.strip()]
+        self.cs_group_map = [g.strip() for g in conf.get('cs_group_map').split(',') if g.strip()]
 
     def __call__(self, env, start_response):
         self.logger.debug('In cs_auth middleware')
