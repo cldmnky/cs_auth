@@ -243,9 +243,11 @@ class CloudstackAuth(object):
                         self.logger.debug('Trying auth with CS')
                         user_list = self.cs_api.request(dict({'command': 'listUsers', 'accountid': auth_account, 'username': auth_user, 'state': 'enabled'}))
                         if user_list:
-                            self.logger.debug('Got user list from CS, list size is %s' % len(user_list['user']))
+                            self.logger.debug('Got user list from CS, list size is: %s' % len(user_list['user']))
                             for user in user_list['user']:
+                                self.logger.debug('Trying user %s' % user['username'])
                                 if 'apikey' in user and user['apikey'] == auth_key:
+                                    self.logger.debug('User apikey matches')
                                     token = hashlib.sha224('%s%s' % (user['secretkey'], user['apikey'])).hexdigest()
                                     if env.get('HTTP_X_AUTH_TTL', None):
                                         expires = time() + int(env.get('HTTP_X_AUTH_TTL'))
