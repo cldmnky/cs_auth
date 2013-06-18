@@ -178,7 +178,7 @@ class CloudstackAuth(object):
                                         'token':token,
                                         'account_url':account_url,
                                         'domain':dict({'id':user['domainid'], 'name':user['domain']}),
-                                        'roles':[self.cs_roles[user['accounttype']], user['account'], self.cs_group_map[self.cs_roles[user['accounttype']]]],
+                                        'roles':[self.cs_roles[user['accounttype']], user['account']], 
                                         'expires':expires
                                     })
                                     self.logger.debug('Creating S3 identity')
@@ -256,6 +256,7 @@ class CloudstackAuth(object):
                                         expires = time() + self.cs_cache_timeout
                                         timeout = self.cs_cache_timeout
                                     if self.reseller_prefix != '':
+                                        self.logger.debug('Using reseller prefix: %s' % self.reseller_prefix)
                                         account_url = '%s/v1/%s_%s' % (self.storage_url, self.reseller_prefix, quote(user['accountid']))
                                     else:
                                         account_url = '%s/v1/%s' % (self.storage_url, quote(user['accountid']))
@@ -266,7 +267,7 @@ class CloudstackAuth(object):
                                         'token':token,
                                         'account_url':account_url,
                                         'domain':dict({'id':user['domainid'], 'name':user['domain']}),
-                                        'roles':[self.cs_roles[user['accounttype']], user['account'],self.cs_group_map[self.cs_roles[user['accounttype']]]],
+                                        'roles':[self.cs_roles[user['accounttype']], user['account']],
                                         'expires':expires
                                     })
                                     self.logger.debug('Created identity: %s' % identity)
@@ -360,7 +361,7 @@ class CloudstackAuth(object):
                         'token':token_claim,
                         'account_url':account_url,
                         'domain':dict({'id':user['domainid'], 'name':user['domain']}),
-                        'roles':[self.cs_roles[user['accounttype']], user['account'],self.cs_group_map[self.cs_roles[user['accounttype']]]],
+                        'roles':[self.cs_roles[user['accounttype']], user['account']],
                         'expires':expires
                     })
                     self.logger.debug('Using identity from cloudstack via token')
