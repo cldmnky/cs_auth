@@ -63,6 +63,7 @@ class CloudstackAuth(object):
         cs_admin_apikey = <admin user's apikey>
         cs_admin_secretkey = <admin user's secretkey>
         swift_storage_url = http://127.0.0.1:8080
+        cs_group_map
         #cs_cache_timeout = 86400
         #allowed_sync_hosts = 127.0.0.1#,127.0.0.2,127.0.0.3
 
@@ -74,7 +75,7 @@ class CloudstackAuth(object):
     Curl:
     -----
     Request for authentication
-    curl -v -H "X-Auth-User: $cloudstack_username" -H "X-Auth-Key: $cloudstack_apikey" http://127.0.0.1:8080/v1.0
+    curl -v -H "X-Auth-User: <account_uuid>:$cloudstack_username" -H "X-Auth-Key: $cloudstack_apikey" http://127.0.0.1:8080/v1.0
     returns: $cloudstack_auth_token and $cloudstack_swift_storage_url
 
     Request container list
@@ -110,7 +111,7 @@ class CloudstackAuth(object):
         self.app = app
         self.conf = conf
         self.logger = get_logger(conf, log_route='cs_auth')
-        self.reseller_prefix = conf.get('reseller_prefix', '').strip()
+        self.reseller_prefix = conf.get('reseller_prefix', 'CSAUTH').strip()
         self.cs_roles = ('cs_user_role', 'cs_global_admin_role', 'cs_domain_admin_role') # ORDER IS IMPORTANT: mapping to cs accounttype.
         self.cs_api_url = conf.get('cs_api_url').strip()
         self.cs_admin_apikey = conf.get('cs_admin_apikey').strip()
