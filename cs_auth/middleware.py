@@ -132,7 +132,7 @@ class CloudstackAuth(object):
         # Handle s3 connections first because s3 has a unique format/use for the 'HTTP_X_AUTH_TOKEN'.
         s3 = env.get('HTTP_AUTHORIZATION', None)
         if s3 and s3.startswith('AWS'):
-            logger.debug('A s3 request: %s' % s3)
+            self.logger.debug('A s3 request: %s' % s3)
             s3_apikey, s3_signature = s3.split(' ')[1].rsplit(':', 1)[:]
             if s3_apikey and s3_signature:
                 # check if we have cached data to validate this request instead of hitting cloudstack.
