@@ -150,7 +150,7 @@ class CloudstackAuth(object):
                     self.logger.debug('s3token: %s' % s3_token)
                     self.logger.debug('Secret is: %s' % data.get('secret', 'NO SECRET FOUND'))
                     self.logger.debug('s3_signature: %s' % s3_signature)
-                    if s3_signature == base64.b64encode(hmac.new(data.get('secret', ''), s3_token, hashlib.sha1).digest()):
+                    if s3_signature == base64.b64encode(hmac.new(data.get('secret', ''), s3_token, hashlib.sha256).digest()):
                         self.logger.debug('Using cached S3 identity')
                         identity = data.get('identity', None)
                         token = identity.get('token', None) # this just simplifies the logical flow, its not really used in this case.
