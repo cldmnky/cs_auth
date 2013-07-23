@@ -408,6 +408,11 @@ class CloudstackAuth(object):
             self.logger.debug('Allowing container-sync')
             return None
 
+        if req.method == 'OPTIONS':
+        #allow OPTIONS requests to proceed as normal
+            self.logger.debug("Allow OPTIONS request.")
+            return None
+
         # Check if Referrer allow it
         referrers, groups = parse_acl(getattr(req, 'acl', None))
         if referrer_allowed(req.referer, referrers):
