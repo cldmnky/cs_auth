@@ -76,7 +76,7 @@ class CloudstackAuth(object):
     Curl:
     -----
     Request for authentication
-    curl -v -H "X-Auth-User: <account_uuid>:$cloudstack_username" -H "X-Auth-Key: $cloudstack_apikey" http://127.0.0.1:8080/v1.0
+    curl -v -H "X-Auth-User: <account_uuid>:$cloudstack_username" -H "X-Auth-Key: $cloudstack_secretkey" http://127.0.0.1:8080/v1.0
     returns: $cloudstack_auth_token and $cloudstack_swift_storage_url
 
     Request container list
@@ -86,7 +86,7 @@ class CloudstackAuth(object):
     Swift CLI:
     ----------
     Request status
-    swift -v -A http://127.0.0.1:8080/v1.0 -U $cloudstack_username -K $cloudstack_apikey stat
+    swift -v -A http://127.0.0.1:8080/v1.0 -U $cloudstack_username -K $cloudstack_secretkey stat
 
 
     S3 API:
@@ -251,8 +251,8 @@ class CloudstackAuth(object):
                             self.logger.debug('Got user list from CS, list size is: %s' % len(user_list['user']))
                             for user in user_list['user']:
                                 self.logger.debug('Trying user %s' % user['username'])
-                                if 'apikey' in user and user['apikey'] == auth_key:
-                                    self.logger.debug('User apikey matches')
+                                if 'secretkey' in user and user['secretkey'] == auth_key:
+                                    self.logger.debug('User secretkey matches')
                                     token = hashlib.sha224('%s%s' % (user['secretkey'], user['apikey'])).hexdigest()
                                     if env.get('HTTP_X_AUTH_TTL', None):
                                         expires = time() + int(env.get('HTTP_X_AUTH_TTL'))
