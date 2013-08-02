@@ -162,9 +162,10 @@ class CloudstackAuth(object):
                         else:
                             env['PATH_INFO'] = env['PATH_INFO'].replace(s3_apikey, '%s' % (identity.get('accountid', '')))
                 else: # hit cloudstack and populate memcached if valid request, this will fail if number of users is greater than max pagesize in cs.
-                    user_list = self.cs_api.request(dict({'command':'listUsers', 'state': 'enabled'}))
-                    if user_list:
-                        for user in user_list['user']:
+                    user_response = self.cs_api.request(dict({'command':'getUser', 'apikey': s3_apikey}))
+                    if user_response:
+                        if 'secretkey' in user_response.values(): # TODO: This is really not needed...
+                            user = user_response['user']
                             if 'apikey' in user and user['apikey'] == s3_apikey:
                                 # At this point we have found a matching user.  Authenticate them.
                                 s3_token = base64.urlsafe_b64decode(env.get('HTTP_X_AUTH_TOKEN', '')).encode("utf-8")
