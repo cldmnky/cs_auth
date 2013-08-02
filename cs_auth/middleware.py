@@ -168,9 +168,11 @@ class CloudstackAuth(object):
                         if 'secretkey' in user_response.values(): # TODO: This is really not needed...
                             user = user_response['user']
                             if 'apikey' in user and user['apikey'] == s3_apikey:
+                                self.logger.debug('Found user, trying to authenticate')
                                 # At this point we have found a matching user.  Authenticate them.
                                 s3_token = base64.urlsafe_b64decode(env.get('HTTP_X_AUTH_TOKEN', '')).encode("utf-8")
                                 if s3_signature == base64.b64encode(hmac.new(user['secretkey'], s3_token, hashlib.sha1).digest()):
+                                    self.logger.debug('Creating token')
                                     expires = time() + self.cs_cache_timeout
                                     timeout = self.cs_cache_timeout
                                     token = hashlib.sha224('%s%s' % (user['secretkey'], user['apikey'])).hexdigest()
