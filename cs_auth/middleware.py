@@ -112,7 +112,7 @@ class CloudstackAuth(object):
         self.app = app
         self.conf = conf
         self.logger = get_logger(conf, log_route='cs_auth')
-        self.reseller_prefix = conf.get('reseller_prefix', 'CSAUTH').strip()
+        self.reseller_prefix = conf.get('reseller_prefix', '').strip()
         self.cs_roles = ('cs_user_role', 'cs_global_admin_role', 'cs_domain_admin_role') # ORDER IS IMPORTANT: mapping to cs accounttype.
         self.cs_api_url = conf.get('cs_api_url').strip()
         self.cs_admin_apikey = conf.get('cs_admin_apikey').strip()
