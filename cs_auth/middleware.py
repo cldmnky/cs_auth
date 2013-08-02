@@ -165,7 +165,7 @@ class CloudstackAuth(object):
                     user_response = self.cs_api.request(dict({'command':'getUser', 'userapikey': s3_apikey}))
                     self.logger.debug('cloudstack response: %s' % user_response)
                     if user_response:
-                        if 'secretkey' in user_response['user'].values(): # TODO: This is really not needed...
+                        if 'secretkey' in user_response['user'].keys(): # TODO: This is really not needed...
                             user = user_response['user']
                             if 'apikey' in user and user['apikey'] == s3_apikey:
                                 self.logger.debug('Found user, trying to authenticate')
